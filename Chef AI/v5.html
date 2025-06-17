@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chef AI - AI Recipe Generator</title>
+    <!-- Corrected Tailwind CSS URL -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <!-- Corrected Google Fonts URL -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .title-font {
+            font-family: 'Playfair Display', serif;
+        }
+        /* Style for the generated recipe content */
+        #recipeResult h2 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+            color: #1a202c;
+        }
+        #recipeResult h3 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-top: 1.5rem;
+            margin-bottom: 0.75rem;
+            color: #2d3748;
+            border-bottom: 2px solid #e2e8f0;
+            padding-bottom: 0.25rem;
+        }
+        #recipeResult ul, #recipeResult ol {
+            margin-left: 1.5rem;
+            margin-bottom: 1rem;
+            list-style-position: outside;
+        }
+        #recipeResult ul {
+            list-style-type: disc;
+        }
+        #recipeResult ol {
+            list-style-type: decimal;
+        }
+        #recipeResult li {
+            margin-bottom: 0.5rem;
+            line-height: 1.6; /* Ensure readability */
+        }
+        #recipeResult p {
+            margin-bottom: 1rem;
+            line-height: 1.6;
+        }
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+        /* For message box */
+        .message-box {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 12px 24px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            z-index: 1000;
+            display: none; /* Hidden by default */
+        }
+        .message-box.success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .message-box.error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .message-box.info {
+            background-color: #cce5ff;
+            color: #004085;
+            border: 1px solid #b8daff;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800">
+
+    <!-- Message Box -->
+    <div id="messageBox" class="message-box"></div>
+
+    <!-- Settings Modal -->
+    <div id="settingsModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center">
+        <div class="bg-white rounded-lg shadow-xl p-6 md:p-8 w-11/12 md:w-1/3 max-w-lg">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-2xl font-bold text-gray-900">Settings</h2>
+                <button id="closeModal" class="text-gray-500 hover:text-gray-800">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+            <div class="mb-4">
+                <label for="apiKey" class="block text-sm font-medium text-gray-700 mb-2">Gemini API Key</label>
+                <input type="password" id="apiKey" name="apiKey" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" placeholder="Enter your API key">
+                <p class="text-xs text-gray-500 mt-2">Your API key is used to generate recipes with AI.</p>
+            </div>
+            <div class="flex items-center mb-6">
+                <input id="rememberApiKey" name="rememberApiKey" type="checkbox" class="focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-gray-300 rounded">
+                <label for="rememberApiKey" class="ml-2 block text-sm font-medium text-gray-700">Remember API Key (stores in browser)</label>
+            </div>
+            <div class="mt-6 flex justify-end">
+                <button id="saveSettings" class="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Container -->
+    <div class="container mx-auto p-4 md:p-8">
+        <!-- Header -->
+        <header class="flex justify-between items-center mb-8">
+            <h1 class="text-4xl md:text-5xl title-font text-gray-900">Chef AI</h1>
+            <button id="openSettings" class="text-gray-600 hover:text-gray-900 p-2 rounded-full hover:bg-gray-200 transition-colors">
+                <svg class="w-6 h-6 md:w-7 md:h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+            </button>
+        </header>
+
+        <main class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            <!-- Form Section -->
+            <div class="lg:col-span-4">
+                <div class="bg-white p-6 rounded-lg shadow-md">
+                    <h2 class="text-2xl font-bold mb-6 text-gray-900">Create Your Recipe</h2>
+                    <form id="recipeForm" class="space-y-6">
+                        <!-- Theme/Cuisine -->
+                        <div>
+                            <label for="theme" class="block text-sm font-medium text-gray-700">Theme / Cuisine</label>
+                            <select id="theme" name="theme" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
+                                <option>Any</option>
+                                <option>Italian</option>
+                                <option>Mexican</option>
+                                <option>Japanese</option>
+                                <option>Indian</option>
+                                <option>Chinese</option>
+                                <option>French</option>
+                                <option>Mediterranean</option>
+                                <option>American</option>
+                            </select>
+                        </div>
+                        
+                        <!-- Ingredients -->
+                        <div>
+                            <label for="ingredients" class="block text-sm font-medium text-gray-700">Available Ingredients</label>
+                            <textarea id="ingredients" name="ingredients" rows="4" class="mt-1 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500" placeholder="e.g., chicken breast, rice, broccoli, soy sauce"></textarea>
+                        </div>
+
+                        <!-- Cooking Time -->
+                        <div>
+                             <label for="cookingTime" class="block text-sm font-medium text-gray-700">Max Cooking Time</label>
+                            <select id="cookingTime" name="cookingTime" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
+                                <option value="15 minutes">Under 15 minutes</option>
+                                <option value="30 minutes" selected>30 minutes</option>
+                                <option value="1 hour">1 hour</option>
+                                <option value="more than 1 hour">1 hour+</option>
+                            </select>
+                        </div>
+
+                        <!-- Dish Size - Numeric Input -->
+                        <div>
+                            <label for="servings" class="block text-sm font-medium text-gray-700">Number of Servings</label>
+                            <div class="mt-1 flex rounded-md shadow-sm">
+                                <input type="number" id="servings" name="servings" value="1" min="1" class="focus:ring-indigo-500 focus:border-indigo-500 flex-1 block w-full rounded-none rounded-l-md sm:text-sm border-gray-300 p-2" aria-label="Number of servings">
+                                <button type="button" id="decreaseServings" class="-ml-px relative inline-flex items-center space-x-2 px-4 py-2 border border-gray-300 text-sm font-medium rounded-r-md text-gray-700 bg-gray-50 hover:bg-gray-100 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500">
+                                    <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                        <path fill-rule="evenodd" d="M5 10a1 1 0 011-1h8a1 1 0 110 2H6a1 1 0 01-1-1z" clip-rule="evenodd" />
+                                    </svg>
+                                </button>
+                                <button type="button" id="increaseServings" class="ml-1 relative inline-flex items-center space-x-2 px-4 py-2 border border-gray-300 text-sm font-medium rounded-r-md text-gray-700 bg-gray-50 hover:bg-gray-100 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500">
+                                    <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                        <path fill-rule="evenodd" d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" clip-rule="evenodd" />
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Dietary Restrictions -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Dietary Needs</label>
+                            <div class="mt-2 space-y-2">
+                                <div class="flex items-center">
+                                    <input id="diet-vegetarian" name="diet" type="checkbox" value="Vegetarian" class="focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-gray-300 rounded">
+                                    <label for="diet-vegetarian" class="ml-3 block text-sm font-medium text-gray-700">Vegetarian</label>
+                                </div>
+                                <div class="flex items-center">
+                                    <input id="diet-vegan" name="diet" type="checkbox" value="Vegan" class="focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-gray-300 rounded">
+                                    <label for="diet-vegan" class="ml-3 block text-sm font-medium text-gray-700">Vegan</label>
+                                </div>
+                                <div class="flex items-center">
+                                    <input id="diet-glutenfree" name="diet" type="checkbox" value="Gluten-Free" class="focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-gray-300 rounded">
+                                    <label for="diet-glutenfree" class="ml-3 block text-sm font-medium text-gray-700">Gluten-Free</label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Custom Instructions -->
+                        <div>
+                            <label for="customInstructions" class="block text-sm font-medium text-gray-700">Custom Instructions</label>
+                            <textarea id="customInstructions" name="customInstructions" rows="3" class="mt-1 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500" placeholder="e.g., Make it spicy, use minimal oil, family-friendly"></textarea>
+                        </div>
+
+                        <!-- Submit Button -->
+                        <button type="submit" class="w-full bg-indigo-600 text-white py-3 px-4 border border-transparent rounded-md shadow-sm text-base font-medium hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all duration-200 ease-in-out transform hover:scale-105">
+                            Generate Recipe
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Recipe Result Section -->
+            <div class="lg:col-span-8">
+                <div id="recipeResultContainer" class="bg-white p-6 md:p-8 rounded-lg shadow-md min-h-[400px] mb-8">
+                    <!-- Initial State -->
+                    <div id="initialState" class="text-center flex flex-col justify-center items-center h-full">
+                        <svg class="w-20 h-20 text-gray-300 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M9 13h6" />
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M12 10v6" />
+                        </svg>
+                        <h3 class="text-xl font-semibold text-gray-700">Your recipe will appear here</h3>
+                        <p class="text-gray-500 mt-2">Fill out the form and click "Generate Recipe" to get started.</p>
+                    </div>
+                    <!-- Loading State -->
+                    <div id="loadingState" class="text-center hidden flex-col justify-center items-center h-full">
+                        <div class="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-indigo-500"></div>
+                        <p class="mt-4 text-gray-600 font-medium">Chef AI is thinking...</p>
+                    </div>
+                    <!-- Recipe Content -->
+                    <div id="recipeResult" class="prose max-w-none"></div>
+                </div>
+
+                <!-- Past Recipes Section -->
+                <div id="pastRecipesContainer" class="bg-white p-6 md:p-8 rounded-lg shadow-md">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-2xl font-bold text-gray-900">Past Recipes</h2>
+                        <button id="clearAllRecipesBtn" class="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors text-sm">
+                            Clear All
+                        </button>
+                    </div>
+                    <ul id="pastRecipesList" class="space-y-2">
+                        <!-- Past recipes will be loaded here by JavaScript -->
+                        <li id="noPastRecipes" class="text-gray-500 text-center py-4">No past recipes yet. Generate one to see it here!</li>
+                    </ul>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // Modal elements
+            const settingsModal = document.getElementById('settingsModal');
+            const openSettingsBtn = document.getElementById('openSettings');
+            const closeSettingsBtn = document.getElementById('closeModal');
+            const saveSettingsBtn = document.getElementById('saveSettings');
+            const apiKeyInput = document.getElementById('apiKey');
+            const rememberApiKeyCheckbox = document.getElementById('rememberApiKey');
+
+            // Form and result elements
+            const recipeForm = document.getElementById('recipeForm');
+            const initialState = document.getElementById('initialState');
+            const loadingState = document.getElementById('loadingState');
+            const recipeResult = document.getElementById('recipeResult');
+            const pastRecipesList = document.getElementById('pastRecipesList');
+            const noPastRecipesMessage = document.getElementById('noPastRecipes');
+            const messageBox = document.getElementById('messageBox'); // For custom messages
+            const clearAllRecipesBtn = document.getElementById('clearAllRecipesBtn'); // Clear All button
+
+            // New elements for dish size
+            const servingsInput = document.getElementById('servings');
+            const decreaseServingsBtn = document.getElementById('decreaseServings');
+            const increaseServingsBtn = document.getElementById('increaseServings');
+
+
+            let geminiApiKey = ''; // Store API key in memory
+            let pastRecipes = []; // Array to store { id, name, content } of recipes
+
+            // --- Utility Functions ---
+
+            // Function to display custom messages (replaces alert())
+            function showMessage(message, type = 'success') {
+                messageBox.textContent = message;
+                messageBox.className = `message-box ${type}`; // Apply type class for styling
+                messageBox.style.display = 'block';
+                setTimeout(() => {
+                    messageBox.style.display = 'none';
+                }, 3000); // Hide after 3 seconds
+            }
+
+            // Function to extract recipe name from HTML
+            function extractRecipeName(htmlContent) {
+                const tempDiv = document.createElement('div');
+                tempDiv.innerHTML = htmlContent;
+                const h2 = tempDiv.querySelector('h2');
+                return h2 ? h2.textContent.trim() : 'Untitled Recipe';
+            }
+
+            // Function to save recipes to local storage
+            function saveRecipesToLocalStorage() {
+                localStorage.setItem('pastRecipes', JSON.stringify(pastRecipes));
+            }
+
+            // Function to delete a specific recipe
+            function deleteRecipe(idToDelete) {
+                pastRecipes = pastRecipes.filter(recipe => recipe.id !== idToDelete);
+                saveRecipesToLocalStorage();
+                renderPastRecipes();
+                showMessage('Recipe deleted.', 'success');
+            }
+
+            // Function to download a specific recipe
+            function downloadRecipe(recipeName, recipeContent) {
+                // Create a temporary Blob from the HTML content
+                const blob = new Blob([recipeContent], { type: 'text/plain' });
+                const url = URL.createObjectURL(blob);
+
+                // Create a temporary anchor element
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `${recipeName.replace(/[^a-z0-9]/gi, '_')}.txt`; // Sanitize filename
+                document.body.appendChild(a); // Append to body is necessary for Firefox
+
+                a.click(); // Simulate click
+
+                // Clean up by revoking the object URL and removing the anchor
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                showMessage(`Downloading "${recipeName}"...`, 'info');
+            }
+
+
+            // Function to render past recipes list
+            function renderPastRecipes() {
+                pastRecipesList.innerHTML = ''; // Clear current list
+                if (pastRecipes.length === 0) {
+                    pastRecipesList.appendChild(noPastRecipesMessage);
+                    noPastRecipesMessage.classList.remove('hidden');
+                    clearAllRecipesBtn.classList.add('hidden'); // Hide clear all if no recipes
+                } else {
+                    noPastRecipesMessage.classList.add('hidden');
+                    clearAllRecipesBtn.classList.remove('hidden'); // Show clear all if recipes exist
+                    pastRecipes.forEach((recipe) => {
+                        const li = document.createElement('li');
+                        li.className = 'flex items-center justify-between p-3 bg-gray-100 rounded-md shadow-sm';
+
+                        const recipeNameSpan = document.createElement('span');
+                        recipeNameSpan.className = 'cursor-pointer hover:text-indigo-600 transition-colors flex-grow mr-4';
+                        recipeNameSpan.textContent = recipe.name;
+                        recipeNameSpan.addEventListener('click', () => {
+                            // Load the clicked recipe into the main result area
+                            initialState.classList.add('hidden');
+                            loadingState.classList.add('hidden'); // Ensure loading is hidden
+                            recipeResult.innerHTML = recipe.content;
+                            window.scrollTo({ top: 0, behavior: 'smooth' }); // Scroll to top
+                        });
+
+                        const actionsDiv = document.createElement('div');
+                        actionsDiv.className = 'flex items-center space-x-2'; // For spacing buttons
+
+                        const downloadButton = document.createElement('button');
+                        downloadButton.className = 'flex-shrink-0 text-gray-500 hover:text-blue-700 p-1 rounded-full hover:bg-blue-100 transition-colors';
+                        downloadButton.innerHTML = `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>`;
+                        downloadButton.title = `Download ${recipe.name}`;
+                        downloadButton.addEventListener('click', (e) => {
+                            e.stopPropagation(); // Prevent li click event
+                            downloadRecipe(recipe.name, recipe.content);
+                        });
+
+                        const deleteButton = document.createElement('button');
+                        deleteButton.className = 'flex-shrink-0 text-red-500 hover:text-red-700 p-1 rounded-full hover:bg-red-100 transition-colors';
+                        deleteButton.innerHTML = `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>`;
+                        deleteButton.title = `Delete ${recipe.name}`;
+                        deleteButton.addEventListener('click', (e) => {
+                            e.stopPropagation(); // Prevent li click event
+                            deleteRecipe(recipe.id);
+                        });
+
+                        actionsDiv.appendChild(downloadButton);
+                        actionsDiv.appendChild(deleteButton);
+                        li.appendChild(recipeNameSpan);
+                        li.appendChild(actionsDiv);
+                        pastRecipesList.appendChild(li);
+                    });
+                }
+            }
+
+            // --- Initialization: Load from Local Storage ---
+            function loadSettingsAndRecipes() {
+                // Load API Key
+                const storedApiKey = localStorage.getItem('geminiApiKey');
+                const storedRememberKey = localStorage.getItem('rememberApiKey');
+
+                if (storedApiKey) {
+                    apiKeyInput.value = storedApiKey;
+                    geminiApiKey = storedApiKey;
+                }
+                if (storedRememberKey === 'true') {
+                    rememberApiKeyCheckbox.checked = true;
+                } else {
+                    rememberApiKeyCheckbox.checked = false;
+                }
+
+                // Load Past Recipes
+                const storedRecipes = localStorage.getItem('pastRecipes');
+                if (storedRecipes) {
+                    try {
+                        pastRecipes = JSON.parse(storedRecipes);
+                        // Ensure each recipe has an 'id' for deletion, or assign one if missing
+                        pastRecipes = pastRecipes.map(recipe => ({ ...recipe, id: recipe.id || crypto.randomUUID() }));
+                        saveRecipesToLocalStorage(); // Save back with IDs if any were missing
+                        renderPastRecipes();
+                    } catch (e) {
+                        console.error("Error parsing past recipes from localStorage:", e);
+                        pastRecipes = []; // Reset if corrupted
+                        saveRecipesToLocalStorage(); // Clear corrupted data
+                    }
+                } else {
+                    renderPastRecipes(); // Render empty state
+                }
+            }
+
+            loadSettingsAndRecipes(); // Call on DOMContentLoaded
+
+
+            // --- Settings Modal Logic ---
+            openSettingsBtn.addEventListener('click', () => {
+                settingsModal.classList.remove('hidden');
+                // Ensure API key input reflects current in-memory or loaded value
+                apiKeyInput.value = geminiApiKey;
+            });
+
+            closeSettingsBtn.addEventListener('click', () => {
+                settingsModal.classList.add('hidden');
+            });
+
+            saveSettingsBtn.addEventListener('click', () => {
+                geminiApiKey = apiKeyInput.value.trim();
+                const shouldRemember = rememberApiKeyCheckbox.checked;
+
+                if (geminiApiKey) {
+                    if (shouldRemember) {
+                        localStorage.setItem('geminiApiKey', geminiApiKey);
+                        localStorage.setItem('rememberApiKey', 'true');
+                        showMessage('API Key saved successfully and will be remembered.', 'success');
+                    } else {
+                        localStorage.removeItem('geminiApiKey');
+                        localStorage.setItem('rememberApiKey', 'false');
+                        showMessage('API Key saved for this session only.', 'success');
+                    }
+                    settingsModal.classList.add('hidden');
+                } else {
+                    // If API key is cleared, also remove from local storage
+                    localStorage.removeItem('geminiApiKey');
+                    localStorage.setItem('rememberApiKey', 'false'); // If no key, don't remember
+                    geminiApiKey = ''; // Clear in-memory key
+                    showMessage('Please enter a valid API Key. Key removed from storage.', 'error');
+                }
+            });
+
+            // Close modal if clicking outside of it
+            window.addEventListener('click', (e) => {
+                if (e.target === settingsModal) {
+                    settingsModal.classList.add('hidden');
+                }
+            });
+
+            // --- Clear All Recipes Logic ---
+            clearAllRecipesBtn.addEventListener('click', () => {
+                if (pastRecipes.length > 0) {
+                    // This is a simple confirmation, for a real app consider a custom modal
+                    const confirmed = confirm('Are you sure you want to clear all saved recipes? This cannot be undone.');
+                    if (confirmed) {
+                        pastRecipes = []; // Clear the array
+                        saveRecipesToLocalStorage(); // Save empty array
+                        renderPastRecipes(); // Re-render the list
+                        showMessage('All recipes cleared.', 'success');
+                    }
+                } else {
+                    showMessage('No recipes to clear.', 'info');
+                }
+            });
+
+            // --- Dish Size Input Logic ---
+            servingsInput.addEventListener('input', (e) => {
+                // Ensure only numbers are allowed and minimum is 1
+                let value = parseInt(e.target.value, 10);
+                if (isNaN(value) || value < 1) {
+                    e.target.value = 1;
+                } else {
+                    e.target.value = value;
+                }
+            });
+
+            decreaseServingsBtn.addEventListener('click', () => {
+                let currentValue = parseInt(servingsInput.value, 10);
+                if (currentValue > 1) {
+                    servingsInput.value = currentValue - 1;
+                }
+            });
+
+            increaseServingsBtn.addEventListener('click', () => {
+                let currentValue = parseInt(servingsInput.value, 10);
+                servingsInput.value = currentValue + 1;
+            });
+
+
+            // --- Recipe Generation Logic ---
+            recipeForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+
+                if (!geminiApiKey) {
+                    showMessage('Please set your Gemini API key in the settings first.', 'error');
+                    settingsModal.classList.remove('hidden'); // Open settings to prompt user
+                    return;
+                }
+
+                // 1. Gather form data
+                const formData = new FormData(recipeForm);
+                const theme = formData.get('theme');
+                const ingredients = formData.get('ingredients');
+                const cookingTime = formData.get('cookingTime');
+                const servings = formData.get('servings'); // Get value from new servings input
+                const customInstructions = formData.get('customInstructions');
+
+                const dietCheckboxes = document.querySelectorAll('input[name="diet"]:checked');
+                const dietaryNeeds = Array.from(dietCheckboxes).map(cb => cb.value).join(', ');
+
+                // Generate a unique ID for the request to encourage a new recipe
+                const uniqueRequestId = `request-${crypto.randomUUID()}`;
+
+                // 2. Construct the prompt
+                let prompt = `You are an expert chef named "Chef AI". A user needs a recipe.
+                Your response MUST be ONLY simple HTML (no markdown code block delimiters like \`\`\`html or \`\`\`), using h2 for the title, h3 for sections like "Ingredients" and "Instructions", and ul/ol for lists.
+                The recipe MUST be unique and different from any previously generated recipes for similar inputs.
+                
+                Here are the user's requirements:
+                - Cuisine Theme: ${theme}
+                - Key Ingredients to use if possible: ${ingredients || 'Any'}
+                - Desired Cooking Time: Around or under ${cookingTime}
+                - Number of Servings: ${servings}
+                ${dietaryNeeds ? `- Dietary Restrictions: ${dietaryNeeds}` : ''}
+                ${customInstructions ? `- Custom Instructions: ${customInstructions}` : ''}
+                
+                <!-- Internal Debugging Info: ${uniqueRequestId} -->
+                
+                Please generate a creative and delicious recipe that fits these criteria. Give it a unique, appealing name.`;
+
+                // 3. Update UI to loading state
+                initialState.classList.add('hidden');
+                recipeResult.innerHTML = ''; // Clear previous recipe
+                loadingState.classList.remove('hidden');
+
+                // 4. Call the Gemini API
+                try {
+                    let chatHistory = [{ role: "user", parts: [{ text: prompt }] }];
+                    const payload = { contents: chatHistory };
+                    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiApiKey}`;
+                    
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(`API Error: ${errorData.error.message}`);
+                    }
+
+                    const result = await response.json();
+
+                    if (result.candidates && result.candidates.length > 0 &&
+                        result.candidates[0].content && result.candidates[0].content.parts &&
+                        result.candidates[0].content.parts.length > 0) {
+                        let recipeHtml = result.candidates[0].content.parts[0].text;
+                        
+                        // Clean up the recipeHtml: remove markdown code block fences and internal request ID
+                        // This pattern looks for an opening ```html followed by optional newline, and a closing ``` followed by optional newline.
+                        // It also tries to remove the comment added for internal debugging.
+                        recipeHtml = recipeHtml.replace(/^```html\n?/, '').replace(/\n?```$/, '');
+                        recipeHtml = recipeHtml.replace(/<!-- Internal Debugging Info: request-[0-9a-f-]+ -->/g, '').trim(); // Use g for global replace
+
+                        // Set the recipe content
+                        recipeResult.innerHTML = recipeHtml;
+
+                        // 5. Save and render past recipe
+                        const recipeName = extractRecipeName(recipeHtml);
+                        // Add a unique ID to each recipe object for easier deletion
+                        pastRecipes.push({ id: crypto.randomUUID(), name: recipeName, content: recipeHtml });
+                        saveRecipesToLocalStorage();
+                        renderPastRecipes(); // Re-render the list with the new recipe
+                        showMessage('Recipe generated and saved!', 'success');
+
+
+                    } else {
+                        throw new Error('No content received from API.');
+                    }
+
+                } catch (error) {
+                    console.error("Error fetching recipe:", error);
+                    recipeResult.innerHTML = `<div class="text-red-500 text-center">
+                        <h3 class="font-bold text-lg">Oops! Something went wrong.</h3>
+                        <p>${error.message}</p>
+                        <p>Please check your API key and network connection.</p>
+                        </div>`;
+                    showMessage(`Error: ${error.message}`, 'error');
+                } finally {
+                    // 6. Hide loading state
+                    loadingState.classList.add('hidden');
+                }
+            });
+        });
+    </script>
+</body>
+</html>

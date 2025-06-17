@@ -1,0 +1,1176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chef AI - AI Recipe Generator</title>
+    <!-- Corrected Tailwind CSS URL -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <!-- Corrected Google Fonts URL -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .title-font {
+            font-family: 'Playfair Display', serif;
+        }
+        /* Style for the generated recipe content */
+        #recipeResult h2 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+            color: #1a202c;
+        }
+        #recipeResult h3 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-top: 1.5rem;
+            margin-bottom: 0.75rem;
+            color: #2d3748;
+            border-bottom: 2px solid #e2e8f0;
+            padding-bottom: 0.25rem;
+        }
+        #recipeResult ul, #recipeResult ol {
+            margin-left: 1.5rem;
+            margin-bottom: 1rem;
+            list-style-position: outside;
+        }
+        #recipeResult ul {
+            list-style-type: disc;
+        }
+        #recipeResult ol {
+            list-style-type: decimal;
+        }
+        #recipeResult li {
+            margin-bottom: 0.5rem;
+            line-height: 1.6; /* Ensure readability */
+        }
+        #recipeResult p {
+            margin-bottom: 1rem;
+            line-height: 1.6;
+        }
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+        /* For message box */
+        .message-box {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 12px 24px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            z-index: 1000;
+            display: none; /* Hidden by default */
+        }
+        .message-box.success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .message-box.error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .message-box.info {
+            background-color: #cce5ff;
+            color: #004085;
+            border: 1px solid #b8daff;
+        }
+        /* Spinner for button */
+        .spinner {
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 1s ease-in-out infinite;
+            -webkit-animation: spin 1s ease-in-out infinite;
+            width: 16px;
+            height: 16px;
+            display: inline-block;
+            vertical-align: middle;
+            margin-right: 8px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Styling for convertible measurements and temperatures */
+        .measurement-unit {
+            background-color: #e0f2fe; /* Light blue background */
+            padding: 2px 5px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 500;
+            color: #0d6efd; /* Darker blue text */
+            transition: background-color 0.2s ease-in-out;
+            position: relative; /* Needed for popover positioning */
+        }
+        .measurement-unit:hover {
+            background-color: #bae6fd; /* Slightly darker on hover */
+        }
+
+        /* Popover styles */
+        #conversionPopover {
+            min-width: 150px;
+            max-width: 250px;
+            font-size: 0.9rem;
+            position: absolute;
+            background-color: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            padding: 1rem;
+            z-index: 1000;
+        }
+        #conversionPopover ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        #conversionPopover li {
+            padding: 0.25rem 0;
+            border-bottom: 1px solid #f1f1f1;
+        }
+        #conversionPopover li:last-child {
+            border-bottom: none;
+        }
+        #conversionPopover .close-button {
+            position: absolute;
+            top: 0.5rem;
+            right: 0.5rem;
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: #a0aec0;
+        }
+        #conversionPopover .close-button:hover {
+            color: #4a5568;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800">
+
+    <!-- Message Box -->
+    <div id="messageBox" class="message-box"></div>
+
+    <!-- Settings Modal -->
+    <div id="settingsModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center">
+        <div class="bg-white rounded-lg shadow-xl p-6 md:p-8 w-11/12 md:w-1/3 max-w-lg">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-2xl font-bold text-gray-900">Settings</h2>
+                <button id="closeModal" class="text-gray-500 hover:text-gray-800">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+            <div class="mb-4">
+                <label for="apiKey" class="block text-sm font-medium text-gray-700 mb-2">Gemini API Key</label>
+                <input type="password" id="apiKey" name="apiKey" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" placeholder="Enter your API key">
+                <p class="text-xs text-gray-500 mt-2">Your API key is used to generate recipes with AI.</p>
+            </div>
+            <div class="mb-6">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Default Measurement System</label>
+                <div class="mt-2 space-y-2">
+                    <div class="flex items-center">
+                        <input id="measure-imperial" name="defaultMeasurement" type="radio" value="imperial" class="focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-gray-300">
+                        <label for="measure-imperial" class="ml-3 block text-sm font-medium text-gray-700">Imperial (e.g., cups, ounces)</label>
+                    </div>
+                    <div class="flex items-center">
+                        <input id="measure-metric" name="defaultMeasurement" type="radio" value="metric" class="focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-gray-300">
+                        <label for="measure-metric" class="ml-3 block text-sm font-medium text-gray-700">Metric (e.g., milliliters, grams)</label>
+                    </div>
+                </div>
+            </div>
+            <div class="flex items-center mb-6">
+                <input id="rememberApiKey" name="rememberApiKey" type="checkbox" class="focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-gray-300 rounded">
+                <label for="rememberApiKey" class="ml-2 block text-sm font-medium text-gray-700">Remember API Key (stores in browser)</label>
+            </div>
+            <div class="mt-6 flex justify-end">
+                <button id="saveSettings" class="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Container -->
+    <div class="container mx-auto p-4 md:p-8">
+        <!-- Header -->
+        <header class="flex justify-between items-center mb-8">
+            <h1 class="text-4xl md:text-5xl title-font text-gray-900">Chef AI</h1>
+            <button id="openSettings" class="text-gray-600 hover:text-gray-900 p-2 rounded-full hover:bg-gray-200 transition-colors">
+                <svg class="w-6 h-6 md:w-7 md:h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+            </button>
+        </header>
+
+        <main class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            <!-- Form Section -->
+            <div class="lg:col-span-4">
+                <div class="bg-white p-6 rounded-lg shadow-md">
+                    <h2 class="text-2xl font-bold mb-6 text-gray-900">Create Your Recipe</h2>
+                    <form id="recipeForm" class="space-y-6">
+                        <!-- Theme/Cuisine -->
+                        <div>
+                            <label for="theme" class="block text-sm font-medium text-gray-700">Theme / Cuisine</label>
+                            <select id="theme" name="theme" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
+                                <option>Any</option>
+                                <option>Italian</option>
+                                <option>Mexican</option>
+                                <option>Japanese</option>
+                                <option>Indian</option>
+                                <option>Chinese</option>
+                                <option>French</option>
+                                <option>Mediterranean</option>
+                                <option>American</option>
+                            </select>
+                        </div>
+                        
+                        <!-- Ingredients -->
+                        <div>
+                            <label for="ingredients" class="block text-sm font-medium text-gray-700">Available Ingredients</label>
+                            <textarea id="ingredients" name="ingredients" rows="4" class="mt-1 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500" placeholder="e.g., chicken breast, rice, broccoli, soy sauce"></textarea>
+                        </div>
+
+                        <!-- Cooking Time -->
+                        <div>
+                             <label for="cookingTime" class="block text-sm font-medium text-gray-700">Max Cooking Time</label>
+                            <select id="cookingTime" name="cookingTime" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
+                                <option value="15 minutes">Under 15 minutes</option>
+                                <option value="30 minutes" selected>30 minutes</option>
+                                <option value="1 hour">1 hour</option>
+                                <option value="more than 1 hour">1 hour+</option>
+                            </select>
+                        </div>
+
+                        <!-- Dish Size Radio Buttons -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Dish Size (General)</label>
+                            <div class="mt-2 space-y-2">
+                                <div class="flex items-center">
+                                    <input id="size-snack" name="dishSizeOption" type="radio" value="Snack" class="focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-gray-300">
+                                    <label for="size-snack" class="ml-3 block text-sm font-medium text-gray-700">Snack</label>
+                                </div>
+                                <div class="flex items-center">
+                                    <input id="size-single" name="dishSizeOption" type="radio" value="Single Serving" checked class="focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-gray-300">
+                                    <label for="size-single" class="ml-3 block text-sm font-medium text-gray-700">Single Serving</label>
+                                </div>
+                                <div class="flex items-center">
+                                    <input id="size-family" name="dishSizeOption" type="radio" value="Family Meal (4 servings)" class="focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-gray-300">
+                                    <label for="size-family" class="ml-3 block text-sm font-medium text-gray-700">Family Meal</label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Number of Servings Numeric Input -->
+                        <div>
+                            <label for="servings" class="block text-sm font-medium text-gray-700">Number of Servings (Exact)</label>
+                            <div class="mt-1 flex rounded-md shadow-sm">
+                                <input type="number" id="servings" name="servings" value="1" min="1" class="focus:ring-indigo-500 focus:border-indigo-500 flex-1 block w-full rounded-none rounded-l-md sm:text-sm border-gray-300 p-2" aria-label="Number of servings">
+                                <button type="button" id="decreaseServings" class="-ml-px relative inline-flex items-center space-x-2 px-4 py-2 border border-gray-300 text-sm font-medium text-gray-700 bg-gray-50 hover:bg-gray-100 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 rounded-r-md">
+                                    <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                        <path fill-rule="evenodd" d="M5 10a1 1 0 011-1h8a1 1 0 110 2H6a1 1 0 01-1-1z" clip-rule="evenodd" />
+                                    </svg>
+                                </button>
+                                <button type="button" id="increaseServings" class="ml-1 relative inline-flex items-center space-x-2 px-4 py-2 border border-gray-300 text-sm font-medium text-gray-700 bg-gray-50 hover:bg-gray-100 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 rounded-r-md">
+                                    <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                        <path fill-rule="evenodd" d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" clip-rule="evenodd" />
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Dietary Restrictions -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Dietary Needs</label>
+                            <div class="mt-2 space-y-2">
+                                <div class="flex items-center">
+                                    <input id="diet-vegetarian" name="diet" type="checkbox" value="Vegetarian" class="focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-gray-300 rounded">
+                                    <label for="diet-vegetarian" class="ml-3 block text-sm font-medium text-gray-700">Vegetarian</label>
+                                </div>
+                                <div class="flex items-center">
+                                    <input id="diet-vegan" name="diet" type="checkbox" value="Vegan" class="focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-gray-300 rounded">
+                                    <label for="diet-vegan" class="ml-3 block text-sm font-medium text-gray-700">Vegan</label>
+                                </div>
+                                <div class="flex items-center">
+                                    <input id="diet-glutenfree" name="diet" type="checkbox" value="Gluten-Free" class="focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-gray-300 rounded">
+                                    <label for="diet-glutenfree" class="ml-3 block text-sm font-medium text-gray-700">Gluten-Free</label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Custom Instructions -->
+                        <div>
+                            <label for="customInstructions" class="block text-sm font-medium text-gray-700">Custom Instructions</label>
+                            <textarea id="customInstructions" name="customInstructions" rows="3" class="mt-1 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500" placeholder="e.g., Make it spicy, use minimal oil, family-friendly"></textarea>
+                        </div>
+
+                        <!-- Submit and Clear Buttons -->
+                        <div class="flex flex-col space-y-4">
+                            <button type="submit" id="generateRecipeBtn" class="w-full bg-indigo-600 text-white py-3 px-4 border border-transparent rounded-md shadow-sm text-base font-medium hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all duration-200 ease-in-out transform hover:scale-105">
+                                <span id="buttonText">Generate Recipe</span>
+                                <span id="buttonSpinner" class="spinner hidden"></span>
+                            </button>
+                            <button type="button" id="clearFormBtn" class="w-full bg-gray-200 text-gray-800 py-3 px-4 border border-transparent rounded-md shadow-sm text-base font-medium hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-400 transition-all duration-200 ease-in-out">
+                                Clear Form
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Recipe Result Section -->
+            <div class="lg:col-span-8">
+                <div id="recipeResultContainer" class="bg-white p-6 md:p-8 rounded-lg shadow-md min-h-[400px] mb-8">
+                    <!-- Initial State -->
+                    <div id="initialState" class="text-center flex flex-col justify-center items-center h-full">
+                        <svg class="w-20 h-20 text-gray-300 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M9 13h6" />
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M12 10v6" />
+                        </svg>
+                        <h3 class="text-xl font-semibold text-gray-700">Your recipe will appear here</h3>
+                        <p class="text-gray-500 mt-2">Fill out the form and click "Generate Recipe" to get started.</p>
+                    </div>
+                    <!-- Loading State -->
+                    <div id="loadingState" class="text-center hidden flex-col justify-center items-center h-full">
+                        <div class="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-indigo-500"></div>
+                        <p class="mt-4 text-gray-600 font-medium">Chef AI is thinking...</p>
+                    </div>
+                    <!-- Recipe Content -->
+                    <div id="recipeResult" class="prose max-w-none"></div>
+                </div>
+
+                <!-- Past Recipes Section -->
+                <div id="pastRecipesContainer" class="bg-white p-6 md:p-8 rounded-lg shadow-md">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-2xl font-bold text-gray-900">Past Recipes</h2>
+                        <button id="clearAllRecipesBtn" class="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors text-sm">
+                            Clear All
+                        </button>
+                    </div>
+                    <ul id="pastRecipesList" class="space-y-2">
+                        <!-- Past recipes will be loaded here by JavaScript -->
+                        <li id="noPastRecipes" class="text-gray-500 text-center py-4">No past recipes yet. Generate one to see it here!</li>
+                    </ul>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Conversion Popover -->
+    <div id="conversionPopover" class="hidden">
+        <button id="closePopover" class="close-button">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+        </button>
+        <div id="popoverContent"></div>
+    </div>
+
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // Modal elements
+            const settingsModal = document.getElementById('settingsModal');
+            const openSettingsBtn = document.getElementById('openSettings');
+            const closeSettingsBtn = document.getElementById('closeModal');
+            const saveSettingsBtn = document.getElementById('saveSettings');
+            const apiKeyInput = document.getElementById('apiKey');
+            const rememberApiKeyCheckbox = document.getElementById('rememberApiKey');
+            const measureImperialRadio = document.getElementById('measure-imperial');
+            const measureMetricRadio = document.getElementById('measure-metric');
+
+
+            // Form and result elements
+            const recipeForm = document.getElementById('recipeForm');
+            const initialState = document.getElementById('initialState');
+            const loadingState = document.getElementById('loadingState');
+            const recipeResult = document.getElementById('recipeResult');
+            const pastRecipesList = document.getElementById('pastRecipesList');
+            const noPastRecipesMessage = document.getElementById('noPastRecipes');
+            const messageBox = document.getElementById('messageBox'); // For custom messages
+            const clearAllRecipesBtn = document.getElementById('clearAllRecipesBtn'); // Clear All button
+            const generateRecipeBtn = document.getElementById('generateRecipeBtn'); // Generate button
+            const buttonText = document.getElementById('buttonText');
+            const buttonSpinner = document.getElementById('buttonSpinner');
+            const clearFormBtn = document.getElementById('clearFormBtn'); // Clear Form button
+
+            // Elements for servings input
+            const servingsInput = document.getElementById('servings');
+            const decreaseServingsBtn = document.getElementById('decreaseServings');
+            const increaseServingsBtn = document.getElementById('increaseServings');
+
+            // Popover elements
+            const conversionPopover = document.getElementById('conversionPopover');
+            const popoverContent = document.getElementById('popoverContent');
+            const closePopoverBtn = document.getElementById('closePopover');
+
+
+            let geminiApiKey = ''; // Store API key in memory
+            let pastRecipes = []; // Array to store { id, name, content } of recipes
+            let defaultMeasurementSystem = 'imperial'; // Default measurement system
+
+            // --- Utility Functions ---
+
+            // Function to display custom messages (replaces alert())
+            function showMessage(message, type = 'success') {
+                messageBox.textContent = message;
+                messageBox.className = `message-box ${type}`; // Apply type class for styling
+                messageBox.style.display = 'block';
+                setTimeout(() => {
+                    messageBox.style.display = 'none';
+                }, 3000); // Hide after 3 seconds
+            }
+
+            // Fallback for crypto.randomUUID()
+            function generateUUID() {
+                if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+                    return crypto.randomUUID();
+                } else {
+                    // Fallback for older browsers (less secure but functional)
+                    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+                        var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+                        return v.toString(16);
+                    });
+                }
+            }
+
+            // Function to extract recipe name from HTML
+            function extractRecipeName(htmlContent) {
+                const tempDiv = document.createElement('div');
+                tempDiv.innerHTML = htmlContent;
+                const h2 = tempDiv.querySelector('h2');
+                return h2 ? h2.textContent.trim() : 'Untitled Recipe';
+            }
+
+            // Function to save recipes to local storage
+            function saveRecipesToLocalStorage() {
+                localStorage.setItem('pastRecipes', JSON.stringify(pastRecipes));
+            }
+
+            // Function to delete a specific recipe
+            function deleteRecipe(idToDelete) {
+                pastRecipes = pastRecipes.filter(recipe => recipe.id !== idToDelete);
+                saveRecipesToLocalStorage();
+                renderPastRecipes();
+                showMessage('Recipe deleted.', 'success');
+            }
+
+            // Function to download a specific recipe
+            function downloadRecipe(recipeName, recipeContent) {
+                // Create a temporary Blob from the HTML content
+                const blob = new Blob([recipeContent], { type: 'text/plain' });
+                const url = URL.createObjectURL(blob);
+
+                // Create a temporary anchor element
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `${recipeName.replace(/[^a-z0-9]/gi, '_')}.txt`; // Sanitize filename
+                document.body.appendChild(a); // Append to body is necessary for Firefox
+
+                a.click(); // Simulate click
+
+                // Clean up by revoking the object URL and removing the anchor
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                showMessage(`Downloading "${recipeName}"...`, 'info');
+            }
+
+            // --- Measurement and Temperature Conversion Logic ---
+            const conversions = {
+                // Volume: Imperial to Metric
+                'cup': { to: 'ml', rate: 236.588, singular: 'cup', plural: 'cups' },
+                'cups': { to: 'ml', rate: 236.588, singular: 'cup', plural: 'cups' },
+                'tbsp': { to: 'ml', rate: 14.787, singular: 'tablespoon', plural: 'tablespoons' },
+                'tablespoon': { to: 'ml', rate: 14.787, singular: 'tablespoon', plural: 'tablespoons' },
+                'tablespoons': { to: 'ml', rate: 14.787, singular: 'tablespoon', plural: 'tablespoons' },
+                'tsp': { to: 'ml', rate: 4.929, singular: 'teaspoon', plural: 'teaspoons' },
+                'teaspoon': { to: 'ml', rate: 4.929, singular: 'teaspoon', plural: 'teaspoons' },
+                'teaspoons': { to: 'ml', rate: 4.929, singular: 'teaspoon', plural: 'teaspoons' },
+                'fl oz': { to: 'ml', rate: 29.5735, singular: 'fluid ounce', plural: 'fluid ounces' },
+                'fluid ounce': { to: 'ml', rate: 29.5735, singular: 'fluid ounce', plural: 'fluid ounces' },
+                'fluid ounces': { to: 'ml', rate: 29.5735, singular: 'fluid ounce', plural: 'fluid ounces' },
+                'pint': { to: 'ml', rate: 473.176, singular: 'pint', plural: 'pints' },
+                'pints': { to: 'ml', rate: 473.176, singular: 'pint', plural: 'pints' },
+                'quart': { to: 'ml', rate: 946.353, singular: 'quart', plural: 'quarts' },
+                'quarts': { to: 'ml', rate: 946.353, singular: 'quart', plural: 'quarts' },
+                'gallon': { to: 'ml', rate: 3785.41, singular: 'gallon', plural: 'gallons' },
+                'gallons': { to: 'ml', rate: 3785.41, singular: 'gallon', plural: 'gallons' },
+                // Volume: Metric to Imperial (for reverse conversion)
+                'ml': { to: 'cup', rate: 1 / 236.588, singular: 'milliliter', plural: 'milliliters' },
+                'milliliter': { to: 'cup', rate: 1 / 236.588, singular: 'milliliter', plural: 'milliliters' },
+                'milliliters': { to: 'cup', rate: 1 / 236.588, singular: 'milliliter', plural: 'milliliters' },
+                'l': { to: 'cup', rate: 1000 / 236.588, singular: 'liter', plural: 'liters' }, // Convert L to ml first, then ml to cup
+                'liter': { to: 'cup', rate: 1000 / 236.588, singular: 'liter', plural: 'liters' },
+                'liters': { to: 'cup', rate: 1000 / 236.588, singular: 'liter', plural: 'liters' },
+
+                // Weight: Imperial to Metric
+                'oz': { to: 'g', rate: 28.3495, singular: 'ounce', plural: 'ounces' },
+                'ounce': { to: 'g', rate: 28.3495, singular: 'ounce', plural: 'ounces' },
+                'ounces': { to: 'g', rate: 28.3495, singular: 'ounce', plural: 'ounces' },
+                'lb': { to: 'g', rate: 453.592, singular: 'pound', plural: 'pounds' },
+                'pound': { to: 'g', rate: 453.592, singular: 'pound', plural: 'pounds' },
+                'pounds': { to: 'g', rate: 453.592, singular: 'pound', plural: 'pounds' },
+                // Weight: Metric to Imperial (for reverse conversion)
+                'g': { to: 'oz', rate: 1 / 28.3495, singular: 'gram', plural: 'grams' },
+                'gram': { to: 'oz', rate: 1 / 28.3495, singular: 'gram', plural: 'grams' },
+                'grams': { to: 'oz', rate: 1 / 28.3495, singular: 'gram', plural: 'grams' },
+                'kg': { to: 'lb', rate: 2.20462, singular: 'kilogram', plural: 'kilograms' },
+                'kilogram': { to: 'lb', rate: 2.20462, singular: 'kilogram', plural: 'kilograms' },
+                'kilograms': { to: 'lb', rate: 2.20462, singular: 'kilogram', plural: 'kilograms' },
+            };
+
+            const imperialUnits = ['cup', 'cups', 'tbsp', 'tablespoon', 'tablespoons', 'tsp', 'teaspoon', 'teaspoons', 'fl oz', 'fluid ounce', 'fluid ounces', 'pint', 'pints', 'quart', 'quarts', 'gallon', 'gallons', 'oz', 'ounce', 'ounces', 'lb', 'pound', 'pounds'];
+            const metricUnits = ['ml', 'milliliter', 'milliliters', 'l', 'liter', 'liters', 'g', 'gram', 'grams', 'kg', 'kilogram', 'kilograms'];
+
+            function getUnitSystem(unit) {
+                if (imperialUnits.includes(unit.toLowerCase())) {
+                    return 'imperial';
+                }
+                if (metricUnits.includes(unit.toLowerCase())) {
+                    return 'metric';
+                }
+                return null;
+            }
+
+            // Function to parse numeric values, including fractions (e.g., "1/2", "1 1/2")
+            function parseNumericValue(str) {
+                str = str.trim();
+                let value = NaN;
+
+                // Handle mixed numbers and pure fractions
+                const mixedNumberMatch = str.match(/^(\d+)\s+(\d+)\/(\d+)$/); // e.g., "1 1/2"
+                const pureFractionMatch = str.match(/^(\d+)\/(\d+)$/); // e.g., "1/2"
+
+                if (mixedNumberMatch) {
+                    value = parseFloat(mixedNumberMatch[1]) + (parseFloat(mixedNumberMatch[2]) / parseFloat(mixedNumberMatch[3]));
+                } else if (pureFractionMatch) {
+                    value = parseFloat(pureFractionMatch[1]) / parseFloat(pureFractionMatch[2]);
+                } else {
+                    // Handle decimals and whole numbers
+                    value = parseFloat(str);
+                }
+                return value;
+            }
+
+            function convertAllMeasurements(value, unit) {
+                const lowerUnit = unit.toLowerCase();
+                const sourceSystem = getUnitSystem(lowerUnit);
+                let results = {};
+
+                // Add original measurement
+                results[`${formatNumber(value)} ${unit}`] = {
+                    value: value,
+                    unit: unit,
+                    system: sourceSystem,
+                    isOriginal: true
+                };
+
+                if (sourceSystem === 'imperial') {
+                    // Try to convert to metric
+                    if (conversions[lowerUnit] && conversions[lowerUnit].to) {
+                        const convertedValue = value * conversions[lowerUnit].rate;
+                        const convertedUnit = conversions[lowerUnit].to;
+                        results[`${formatNumber(convertedValue)} ${convertedUnit}`] = {
+                            value: convertedValue,
+                            unit: convertedUnit,
+                            system: 'metric'
+                        };
+                    }
+                } else if (sourceSystem === 'metric') {
+                    // Try to convert to imperial
+                    // Find suitable imperial conversion (inverse)
+                    for (const key in conversions) {
+                        if (conversions[key].to === lowerUnit && getUnitSystem(key) === 'imperial') {
+                            const convertedValue = value * (1 / conversions[key].rate);
+                            const convertedUnit = key;
+                            results[`${formatNumber(convertedValue)} ${convertedUnit}`] = {
+                                value: convertedValue,
+                                unit: convertedUnit,
+                                system: 'imperial'
+                            };
+                            // Also add common imperial alternatives if applicable (e.g., for ml, also show tbsp/tsp)
+                            if (lowerUnit === 'ml') {
+                                results[`${formatNumber(value / conversions['tbsp'].rate)} tbsp`] = { value: value / conversions['tbsp'].rate, unit: 'tbsp', system: 'imperial' };
+                                results[`${formatNumber(value / conversions['tsp'].rate)} tsp`] = { value: value / conversions['tsp'].rate, unit: 'tsp', system: 'imperial' };
+                            }
+                            break; // Take the first relevant imperial conversion
+                        }
+                    }
+                }
+                return results;
+            }
+
+            function convertTemperature(value, unit) {
+                let results = {};
+                // Format for display (round to integer, add degree symbol)
+                const formatTemp = (val, u) => `${Math.round(val)}°${u}`;
+
+                if (unit === 'F') {
+                    results[formatTemp(value, 'F')] = { value: value, unit: 'F', isOriginal: true };
+                    results[formatTemp((value - 32) * 5/9, 'C')] = { value: (value - 32) * 5/9, unit: 'C' };
+                } else if (unit === 'C') {
+                    results[formatTemp(value, 'C')] = { value: value, unit: 'C', isOriginal: true };
+                    results[formatTemp((value * 9/5) + 32, 'F')] = { value: (value * 9/5) + 32, unit: 'F' };
+                }
+                return results;
+            }
+            
+            function formatNumber(num) {
+                // Formats numbers to max 2 decimal places, removes trailing zeros
+                if (typeof num !== 'number' || isNaN(num)) return num;
+                return parseFloat(num.toFixed(2)).toString();
+            }
+
+            // Function to process recipe HTML and wrap measurements
+            function processRecipeHtml(htmlContent, defaultSystem) {
+                const tempDiv = document.createElement('div');
+                tempDiv.innerHTML = htmlContent;
+
+                // Measurement Regex: captures number (int/decimal/fraction) and unit
+                // Using \b for word boundaries to avoid matching parts of other words
+                // Group 1: numeric value part, Group 2: unit part
+                const measurementRegex = /\b(\d+(?:\s*\d*\/\d+)?(?:\.\d+)?)\s*(cups?|tablespoons?|tbsp|teaspoons?|tsp|fl\s*oz|fluid\s*ounces?|ml|milliliters?|liters?|l|grams?|g|kilograms?|kg|ounces?|oz|pounds?|lb|pints?|quarts?|gallons?)\b/gi;
+                
+                // Temperature Regex: captures number and unit (°F, °C, degrees Fahrenheit, degrees Celsius)
+                // Group 1: numeric value part, Group 2: unit part
+                const temperatureRegex = /\b(\d+(?:\.\d+)?)\s*(°F|°C|degrees?\s*(?:Fahrenheit|Celsius))\b/gi;
+
+
+                const walk = document.createTreeWalker(tempDiv, NodeFilter.SHOW_TEXT, null, false);
+                let node;
+                const nodesToProcess = [];
+
+                while ((node = walk.nextNode())) {
+                    // Exclude nodes that are already inside a .measurement-unit span
+                    if (node.parentNode && node.parentNode.classList && node.parentNode.classList.contains('measurement-unit')) {
+                        continue;
+                    }
+                    nodesToProcess.push(node);
+                }
+
+                nodesToProcess.forEach(textNode => {
+                    let originalText = textNode.nodeValue;
+                    let newHtml = originalText; // Start with original
+
+                    // Process temperatures first to avoid issues with 'degrees' being caught as a unit later
+                    newHtml = newHtml.replace(temperatureRegex, (match, valueStr, unit) => {
+                        let value = parseFloat(valueStr);
+                        if (isNaN(value)) {
+                            console.warn(`Failed to parse temperature value: ${valueStr}. Returning original.`);
+                            return match;
+                        }
+                        const unitType = unit.includes('F') || unit.includes('Fahrenheit') ? 'F' : 'C';
+                        
+                        // Display value in the default system for temperatures
+                        let displayValue = value;
+                        let displayUnit = unitType;
+                        if (defaultSystem === 'imperial' && unitType === 'C') { // Convert C to F for display if default is imperial
+                            displayValue = (value * 9/5) + 32;
+                            displayUnit = 'F';
+                        } else if (defaultSystem === 'metric' && unitType === 'F') { // Convert F to C for display if default is metric
+                            displayValue = (value - 32) * 5/9;
+                            displayUnit = 'C';
+                        }
+
+                        return `<span class="measurement-unit" 
+                                    data-value="${value}" 
+                                    data-unit="${unitType}"
+                                    data-type="temperature">
+                                    ${Math.round(displayValue)}°${displayUnit}
+                                </span>`;
+                    });
+
+                    // Process measurements
+                    newHtml = newHtml.replace(measurementRegex, (match, valueStr, unit) => { // Corrected callback arguments
+                        let value = parseNumericValue(valueStr);
+                        if (isNaN(value)) { // If parsing fails, return original match
+                            console.warn(`Failed to parse measurement value: ${valueStr}. Returning original.`);
+                            return match;
+                        }
+
+                        const currentSystem = getUnitSystem(unit);
+                        let displayValue = value;
+                        let displayUnit = unit;
+
+                        if (currentSystem && currentSystem !== defaultSystem) {
+                            const converted = convertAllMeasurements(value, unit);
+                            // Find the display unit based on the default system
+                            for (const key in converted) {
+                                if (converted[key].system === defaultSystem) {
+                                    displayValue = converted[key].value;
+                                    displayUnit = converted[key].unit;
+                                    break;
+                                }
+                            }
+                        }
+                        
+                        return `<span class="measurement-unit" 
+                                    data-value="${value}" 
+                                    data-unit="${unit}"
+                                    data-type="measurement">
+                                    ${formatNumber(displayValue)} ${displayUnit}
+                                </span>`;
+                    });
+
+                    // If modifications were made, replace the text node with a document fragment
+                    if (newHtml !== originalText) {
+                        const fragment = document.createDocumentFragment();
+                        const tempElement = document.createElement('div');
+                        tempElement.innerHTML = newHtml;
+                        while (tempElement.firstChild) {
+                            fragment.appendChild(tempElement.firstChild);
+                        }
+                        textNode.parentNode.replaceChild(fragment, textNode);
+                    }
+                });
+
+                return tempDiv.innerHTML;
+            }
+
+
+            // Function to render past recipes list
+            function renderPastRecipes() {
+                pastRecipesList.innerHTML = ''; // Clear current list
+                if (pastRecipes.length === 0) {
+                    pastRecipesList.appendChild(noPastRecipesMessage);
+                    noPastRecipesMessage.classList.remove('hidden');
+                    clearAllRecipesBtn.classList.add('hidden'); // Hide clear all if no recipes
+                } else {
+                    noPastRecipesMessage.classList.add('hidden');
+                    clearAllRecipesBtn.classList.remove('hidden'); // Show clear all if recipes exist
+                    pastRecipes.forEach((recipe) => {
+                        const li = document.createElement('li');
+                        li.className = 'flex items-center justify-between p-3 bg-gray-100 rounded-md shadow-sm';
+
+                        const recipeNameSpan = document.createElement('span');
+                        recipeNameSpan.className = 'cursor-pointer hover:text-indigo-600 transition-colors flex-grow mr-4';
+                        recipeNameSpan.textContent = recipe.name;
+                        recipeNameSpan.addEventListener('click', () => {
+                            // Load the clicked recipe into the main result area
+                            initialState.classList.add('hidden');
+                            loadingState.classList.add('hidden'); // Ensure loading is hidden
+                            // Re-process recipe content when loaded from past recipes
+                            recipeResult.innerHTML = processRecipeHtml(recipe.content, defaultMeasurementSystem);
+                            window.scrollTo({ top: 0, behavior: 'smooth' }); // Scroll to top
+                        });
+
+                        const actionsDiv = document.createElement('div');
+                        actionsDiv.className = 'flex items-center space-x-2'; // For spacing buttons
+
+                        const downloadButton = document.createElement('button');
+                        downloadButton.className = 'flex-shrink-0 text-gray-500 hover:text-blue-700 p-1 rounded-full hover:bg-blue-100 transition-colors';
+                        downloadButton.innerHTML = `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>`;
+                        downloadButton.title = `Download ${recipe.name}`;
+                        downloadButton.addEventListener('click', (e) => {
+                            e.stopPropagation(); // Prevent li click event
+                            downloadRecipe(recipe.name, recipe.content);
+                        });
+
+                        const deleteButton = document.createElement('button');
+                        deleteButton.className = 'flex-shrink-0 text-red-500 hover:text-red-700 p-1 rounded-full hover:bg-red-100 transition-colors';
+                        deleteButton.innerHTML = `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>`;
+                        deleteButton.title = `Delete ${recipe.name}`;
+                        deleteButton.addEventListener('click', (e) => {
+                            e.stopPropagation(); // Prevent li click event
+                            deleteRecipe(recipe.id);
+                        });
+
+                        actionsDiv.appendChild(downloadButton);
+                        actionsDiv.appendChild(deleteButton);
+                        li.appendChild(recipeNameSpan);
+                        li.appendChild(actionsDiv);
+                        pastRecipesList.appendChild(li);
+                    });
+                }
+            }
+
+            // --- Initialization: Load from Local Storage ---
+            function loadSettingsAndRecipes() {
+                // Load API Key
+                const storedApiKey = localStorage.getItem('geminiApiKey');
+                const storedRememberKey = localStorage.getItem('rememberApiKey');
+                const storedMeasurementSystem = localStorage.getItem('defaultMeasurementSystem');
+
+
+                if (storedApiKey) {
+                    apiKeyInput.value = storedApiKey;
+                    geminiApiKey = storedApiKey;
+                }
+                if (storedRememberKey === 'true') {
+                    rememberApiKeyCheckbox.checked = true;
+                } else {
+                    rememberApiKeyCheckbox.checked = false;
+                }
+
+                if (storedMeasurementSystem) {
+                    defaultMeasurementSystem = storedMeasurementSystem;
+                    if (defaultMeasurementSystem === 'imperial') {
+                        measureImperialRadio.checked = true;
+                    } else {
+                        measureMetricRadio.checked = true;
+                    }
+                } else {
+                    // Default to imperial if not set
+                    measureImperialRadio.checked = true;
+                    localStorage.setItem('defaultMeasurementSystem', 'imperial');
+                }
+
+                // Load Past Recipes
+                const storedRecipes = localStorage.getItem('pastRecipes');
+                if (storedRecipes) {
+                    try {
+                        pastRecipes = JSON.parse(storedRecipes);
+                        // Ensure each recipe has an 'id' for deletion, or assign one if missing
+                        pastRecipes = pastRecipes.map(recipe => ({ ...recipe, id: recipe.id || generateUUID() }));
+                        saveRecipesToLocalStorage(); // Save back with IDs if any were missing
+                        renderPastRecipes();
+                    } catch (e) {
+                        console.error("Error parsing past recipes from localStorage:", e);
+                        pastRecipes = []; // Reset if corrupted
+                        saveRecipesToLocalStorage(); // Clear corrupted data
+                    }
+                } else {
+                    renderPastRecipes(); // Render empty state
+                }
+            }
+
+            loadSettingsAndRecipes(); // Call on DOMContentLoaded
+
+
+            // --- Settings Modal Logic ---
+            openSettingsBtn.addEventListener('click', () => {
+                settingsModal.classList.remove('hidden');
+                // Ensure API key input reflects current in-memory or loaded value
+                apiKeyInput.value = geminiApiKey;
+                // Ensure measurement system reflects current setting
+                if (defaultMeasurementSystem === 'imperial') {
+                    measureImperialRadio.checked = true;
+                } else {
+                    measureMetricRadio.checked = true;
+                }
+            });
+
+            closeSettingsBtn.addEventListener('click', () => {
+                settingsModal.classList.add('hidden');
+            });
+
+            saveSettingsBtn.addEventListener('click', () => {
+                geminiApiKey = apiKeyInput.value.trim();
+                const shouldRemember = rememberApiKeyCheckbox.checked;
+                const selectedMeasurementSystem = document.querySelector('input[name="defaultMeasurement"]:checked').value;
+
+                // Save API Key setting
+                if (geminiApiKey) {
+                    if (shouldRemember) {
+                        localStorage.setItem('geminiApiKey', geminiApiKey);
+                        localStorage.setItem('rememberApiKey', 'true');
+                    } else {
+                        localStorage.removeItem('geminiApiKey');
+                        localStorage.setItem('rememberApiKey', 'false');
+                    }
+                } else {
+                    localStorage.removeItem('geminiApiKey');
+                    localStorage.setItem('rememberApiKey', 'false');
+                    geminiApiKey = '';
+                }
+
+                // Save Default Measurement System setting
+                localStorage.setItem('defaultMeasurementSystem', selectedMeasurementSystem);
+                defaultMeasurementSystem = selectedMeasurementSystem; // Update in-memory variable
+
+                // Re-render current recipe with new default system if one is displayed
+                if (recipeResult.innerHTML !== '' && initialState.classList.contains('hidden') && loadingState.classList.contains('hidden')) {
+                    // We need to re-process the *raw* HTML of the currently displayed recipe.
+                    // This is robust if the `content` in `pastRecipes` stores the raw API response.
+                    const currentRecipeName = extractRecipeName(recipeResult.innerHTML);
+                    const rawRecipeContent = pastRecipes.find(recipe => recipe.name === currentRecipeName)?.content;
+                    if (rawRecipeContent) {
+                         recipeResult.innerHTML = processRecipeHtml(rawRecipeContent, defaultMeasurementSystem);
+                    }
+                   
+                }
+
+                showMessage('Settings saved successfully!', 'success');
+                settingsModal.classList.add('hidden');
+            });
+
+
+            // Close modal if clicking outside of it
+            window.addEventListener('click', (e) => {
+                if (e.target === settingsModal) {
+                    settingsModal.classList.add('hidden');
+                }
+            });
+
+            // --- Clear All Recipes Logic ---
+            clearAllRecipesBtn.addEventListener('click', () => {
+                if (pastRecipes.length > 0) {
+                    // This is a simple confirmation, for a real app consider a custom modal
+                    const confirmed = confirm('Are you sure you want to clear all saved recipes? This cannot be undone.');
+                    if (confirmed) {
+                        pastRecipes = []; // Clear the array
+                        saveRecipesToLocalStorage(); // Save empty array
+                        renderPastRecipes(); // Re-render the list
+                        showMessage('All recipes cleared.', 'success');
+                    }
+                } else {
+                    showMessage('No recipes to clear.', 'info');
+                }
+            });
+
+            // --- Clear Form Logic ---
+            clearFormBtn.addEventListener('click', () => {
+                recipeForm.reset(); // Resets all form fields to their initial state
+                // Manually set radio and servings input to default if needed (reset might not handle defaultChecked/selectedValue)
+                document.getElementById('size-single').checked = true;
+                document.getElementById('servings').value = 1;
+                // Uncheck all dietary restrictions
+                document.querySelectorAll('input[name="diet"]:checked').forEach(checkbox => {
+                    checkbox.checked = false;
+                });
+                showMessage('Form cleared.', 'info');
+            });
+
+            // --- Servings Input Logic ---
+            servingsInput.addEventListener('input', (e) => {
+                // Ensure only numbers are allowed and minimum is 1
+                let value = parseInt(e.target.value, 10);
+                if (isNaN(value) || value < 1) {
+                    e.target.value = 1;
+                } else {
+                    e.target.value = value;
+                }
+            });
+
+            decreaseServingsBtn.addEventListener('click', () => {
+                let currentValue = parseInt(servingsInput.value, 10);
+                if (currentValue > 1) {
+                    servingsInput.value = currentValue - 1;
+                }
+            });
+
+            increaseServingsBtn.addEventListener('click', () => {
+                let currentValue = parseInt(servingsInput.value, 10);
+                servingsInput.value = currentValue + 1;
+            });
+
+            // --- Click-to-Convert Measurement/Temperature Popover Logic ---
+            let activePopoverTarget = null; // To keep track of which element opened the popover
+
+            function showConversionPopover(element, event) {
+                // Hide any currently active popover
+                conversionPopover.classList.add('hidden');
+                if (activePopoverTarget) {
+                    document.removeEventListener('click', hidePopoverOnClickOutside);
+                }
+
+                // Set the current element as the active target
+                activePopoverTarget = element;
+
+                const value = parseFloat(element.dataset.value);
+                const unit = element.dataset.unit;
+                const type = element.dataset.type;
+
+                let contentHtml = '<ul>';
+
+                if (type === 'measurement') {
+                    const allConversions = convertAllMeasurements(value, unit);
+                    for (const key in allConversions) {
+                        contentHtml += `<li>${key}</li>`;
+                    }
+                } else if (type === 'temperature') {
+                    const tempConversions = convertTemperature(value, unit);
+                    for (const key in tempConversions) {
+                        contentHtml += `<li>${key}</li>`;
+                    }
+                }
+                contentHtml += '</ul>';
+
+                popoverContent.innerHTML = contentHtml;
+
+                // Position the popover
+                const rect = element.getBoundingClientRect();
+                const scrollX = window.scrollX || document.documentElement.scrollLeft;
+                const scrollY = window.scrollY || document.documentElement.scrollTop;
+
+                // Calculate position relative to the viewport
+                let top = rect.bottom + scrollY + 5; // 5px below the element
+                let left = rect.left + scrollX;
+
+                // Adjust if popover goes off screen to the right
+                if (left + conversionPopover.offsetWidth > window.innerWidth + scrollX) {
+                    left = window.innerWidth + scrollX - conversionPopover.offsetWidth - 10; // 10px from right edge
+                }
+                // Ensure it doesn't go off screen to the left
+                if (left < scrollX) {
+                    left = scrollX + 10;
+                }
+
+                conversionPopover.style.left = `${left}px`;
+                conversionPopover.style.top = `${top}px`;
+                conversionPopover.classList.remove('hidden');
+
+                // Hide popover when clicking outside
+                setTimeout(() => { // Small delay to avoid immediate close if click initiated it
+                    document.addEventListener('click', hidePopoverOnClickOutside);
+                }, 50);
+            }
+
+            function hidePopoverOnClickOutside(e) {
+                // Check if the click was outside the popover and not on the element that opened it
+                if (!conversionPopover.contains(e.target) && e.target !== activePopoverTarget &&
+                    !activePopoverTarget.contains(e.target)) { // Also check if click was inside the parent of activePopoverTarget
+                    conversionPopover.classList.add('hidden');
+                    activePopoverTarget = null; // Reset
+                    document.removeEventListener('click', hidePopoverOnClickOutside);
+                }
+            }
+
+            recipeResult.addEventListener('click', (e) => {
+                if (e.target.classList.contains('measurement-unit')) {
+                    e.stopPropagation(); // Prevent immediate close from document click listener
+                    showConversionPopover(e.target, e);
+                }
+            });
+
+            closePopoverBtn.addEventListener('click', () => {
+                conversionPopover.classList.add('hidden');
+                activePopoverTarget = null;
+                document.removeEventListener('click', hidePopoverOnClickOutside);
+            });
+
+
+            // --- Recipe Generation Logic ---
+            recipeForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+
+                if (!geminiApiKey) {
+                    showMessage('Please set your Gemini API key in the settings first.', 'error');
+                    settingsModal.classList.remove('hidden'); // Open settings to prompt user
+                    return;
+                }
+
+                // 1. Gather form data
+                const formData = new FormData(recipeForm);
+                const theme = formData.get('theme');
+                const ingredients = formData.get('ingredients');
+                const cookingTime = formData.get('cookingTime');
+                const dishSizeOption = formData.get('dishSizeOption'); // Get value from radio buttons
+                const servings = formData.get('servings'); // Get value from numeric input
+                const customInstructions = formData.get('customInstructions');
+
+                const dietCheckboxes = document.querySelectorAll('input[name="diet"]:checked');
+                const dietaryNeeds = Array.from(dietCheckboxes).map(cb => cb.value).join(', ');
+
+                // Generate a unique ID for the request to encourage a new recipe
+                const uniqueRequestId = `request-${generateUUID()}`;
+
+                // 2. Construct the prompt
+                let prompt = `You are an expert chef named "Chef AI". A user needs a recipe.
+                Your response MUST be ONLY simple HTML (no markdown code block delimiters like \`\`\`html or \`\`\`), using h2 for the title, h3 for sections like "Ingredients" and "Instructions", and ul/ol for lists.
+                The recipe MUST be unique and different from any previously generated recipes for similar inputs.
+                
+                Here are the user's requirements:
+                - Cuisine Theme: ${theme}
+                - Key Ingredients to use if possible: ${ingredients || 'Any'}
+                - Desired Cooking Time: Around or under ${cookingTime}
+                - General Dish Size: ${dishSizeOption}
+                - Exact Number of Servings: ${servings}
+                ${dietaryNeeds ? `- Dietary Restrictions: ${dietaryNeeds}` : ''}
+                ${customInstructions ? `- Custom Instructions: ${customInstructions}` : ''}
+                
+                <!-- Internal Debugging Info: ${uniqueRequestId} -->
+                
+                Please generate a creative and delicious recipe that fits these criteria. Give it a unique, appealing name.`;
+
+                // 3. Update UI to loading state
+                initialState.classList.add('hidden');
+                recipeResult.innerHTML = ''; // Clear previous recipe
+                loadingState.classList.remove('hidden');
+                generateRecipeBtn.disabled = true; // Disable button
+                buttonText.classList.add('hidden'); // Hide text
+                buttonSpinner.classList.remove('hidden'); // Show spinner
+
+
+                // 4. Call the Gemini API
+                try {
+                    let chatHistory = [{ role: "user", parts: [{ text: prompt }] }];
+                    const payload = { contents: chatHistory };
+                    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiApiKey}`;
+                    
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(`API Error: ${errorData.error.message}`);
+                    }
+
+                    const result = await response.json();
+
+                    if (result.candidates && result.candidates.length > 0 &&
+                        result.candidates[0].content && result.candidates[0].content.parts &&
+                        result.candidates[0].content.parts.length > 0) {
+                        let recipeHtml = result.candidates[0].content.parts[0].text;
+                        
+                        // Clean up the recipeHtml: remove markdown code block fences and internal request ID
+                        // This pattern looks for an opening ```html followed by optional newline, and a closing ``` followed by optional newline.
+                        // It also tries to remove the comment added for internal debugging.
+                        recipeHtml = recipeHtml.replace(/^```html\n?/, '').replace(/\n?```$/, '');
+                        recipeHtml = recipeHtml.replace(/<!-- Internal Debugging Info: request-[0-9a-f-]+ -->/g, '').trim(); // Use g for global replace
+
+                        // Process the recipe HTML to wrap measurements for conversion
+                        const processedHtml = processRecipeHtml(recipeHtml, defaultMeasurementSystem);
+
+                        // Set the recipe content
+                        recipeResult.innerHTML = processedHtml;
+
+                        // 5. Save and render past recipe (save raw HTML, then process when rendering from past)
+                        const recipeName = extractRecipeName(recipeHtml);
+                        pastRecipes.push({ id: generateUUID(), name: recipeName, content: recipeHtml }); // Save raw HTML
+                        saveRecipesToLocalStorage();
+                        renderPastRecipes(); // Re-render the list with the new recipe
+                        showMessage('Recipe generated and saved!', 'success');
+
+
+                    } else {
+                        throw new Error('No content received from API.');
+                    }
+
+                } catch (error) {
+                    console.error("Error fetching recipe:", error);
+                    recipeResult.innerHTML = `<div class="text-red-500 text-center">
+                        <h3 class="font-bold text-lg">Oops! Something went wrong.</h3>
+                        <p>${error.message}</p>
+                        <p>Please check your API key and network connection.</p>
+                        </div>`;
+                    showMessage(`Error: ${error.message}`, 'error');
+                } finally {
+                    // 6. Hide loading state
+                    loadingState.classList.add('hidden');
+                    generateRecipeBtn.disabled = false; // Enable button
+                    buttonText.classList.remove('hidden'); // Show text
+                    buttonSpinner.classList.add('hidden'); // Hide spinner
+                }
+            });
+        });
+    </script>
+</body>
+</html>
