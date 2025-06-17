@@ -1,6 +1,8 @@
 # Chef AI
 
-This simple HTML app uses Google's Gemini AI to generate custom recipes 
+Say goodbye to your days of endlessly searching for recipes!
+
+This simple HTML app uses Google's Gemini AI to generate custom recipes
 
 (The quality of which are not guarenteed)
 
