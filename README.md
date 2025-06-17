@@ -2,10 +2,10 @@
 
 This simple HTML app uses Google's Gemini AI to generate custom recipes 
 
-(The quality of which is not guarenteed)
+(The quality of which are not guarenteed)
 
 
 
-You will need your own API key
+You will need your own Gemini API key for it to actually generate anything
 
-Get an API key here: https://aistudio.google.com/u/1/apikey
+You can get an API key here: https://aistudio.google.com/u/1/apikey
