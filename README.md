@@ -2,9 +2,9 @@
 
 Say goodbye to your days of endlessly searching for recipes!
 
-This simple HTML app uses Google's Gemini AI to generate custom recipes
+This simple HTML app uses Google's Gemini AI to generate custom recipes (The quality of which are not guarenteed)
 
-(The quality of which are not guarenteed)
+The .apk version is just the HTML version ported to an Android app with no change
 
 (If it downloads as a text doccument then just change the file extension from .txt to .html)
 
